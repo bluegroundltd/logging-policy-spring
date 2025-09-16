@@ -1,0 +1,10 @@
+type Query {
+  products(offset: Int, limit: Int): [Product]
+}
+
+type Product {
+  id: Int
+  name: String
+  calories: Int,
+  price: Int
+}

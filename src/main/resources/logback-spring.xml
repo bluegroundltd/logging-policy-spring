@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+  <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+  <conversionRule conversionWord="highlight_level"
+    converterClass="com.blueground.loggingpolicy.logging.logback.HighlightLevelConverter"/>
+  <conversionRule conversionWord="stack"
+    converterClass="net.logstash.logback.stacktrace.ShortenedThrowableConverter"/>
+
+  <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <customFields>{"app":"logging-spring-boot", "team": "@my_team"}</customFields>
+      <providers>
+        <arguments/>
+        <keyValuePairs/>
+        <mdc/>
+        <message/>
+        <throwableClassName>
+          <fieldName>error.kind</fieldName>
+        </throwableClassName>
+        <throwableMessage>
+          <fieldName>error.message</fieldName>
+        </throwableMessage>
+        <stackTrace>
+          <fieldName>error.stack</fieldName>
+        </stackTrace>
+        <pattern>
+          <omitEmptyFields>true</omitEmptyFields>
+          <pattern>
+            {
+              "date": "%date{UNIX_TIMESTAMP_AS_NUMBER}",
+              "logger": {
+                "name": "%logger",
+                "thread_name": "%thread"
+              },
+              "status": "%level"
+            }
+          </pattern>
+        </pattern>
+      </providers>
+    </encoder>
+  </appender>
+
+  <springProfile name="dev">
+    <!-- Pretty Print  -->
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+      <withJansi>true</withJansi>
+      <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+        <includeCallerData>true</includeCallerData>
+        <prefix class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+          <layout class="ch.qos.logback.classic.PatternLayout">
+            <!-- https://github.com/logfellow/logstash-logback-encoder?tab=readme-ov-file#using-with-patternlayout-->
+            <pattern>%d{HH:mm:ss.SSS} %highlight_level(%level) %logger{0} %cyan(%msg) %n%red(%stack{30,full,full,true,true})</pattern>
+          </layout>
+        </prefix>
+        <jsonGeneratorDecorator class="net.logstash.logback.decorate.CompositeJsonGeneratorDecorator">
+          <decorator class="net.logstash.logback.decorate.PrettyPrintingJsonGeneratorDecorator"/>
+        </jsonGeneratorDecorator>
+        <providers>
+          <arguments/>
+          <keyValuePairs/>
+          <mdc/>
+          <pattern>
+            <omitEmptyFields>true</omitEmptyFields>
+            <pattern>
+              {
+                "logger": "%logger",
+                "thread_name": "%thread"
+              }
+            </pattern>
+          </pattern>
+        </providers>
+      </encoder>
+    </appender>
+  </springProfile>
+
+
+  <!--
+    This is for testing against Datadog locally
+    Requires the DD_API_KEY environment variable to be set
+   -->
+  <appender name="datadog" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+    <destination>intake.logs.datadoghq.com:10516</destination>
+    <keepAliveDuration>20 seconds</keepAliveDuration>
+    <ssl/>
+    <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+      <prefix class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>${DD_API_KEY} %mdc{keyThatDoesNotExist}</pattern>
+        </layout>
+      </prefix>
+      <providers>
+        <arguments/>
+        <keyValuePairs/>
+        <mdc/>
+        <message/>
+        <throwableClassName>
+          <fieldName>error.kind</fieldName>
+        </throwableClassName>
+        <throwableMessage>
+          <fieldName>error.message</fieldName>
+        </throwableMessage>
+        <stackTrace>
+          <fieldName>error.stack</fieldName>
+        </stackTrace>
+        <pattern>
+          <omitEmptyFields>true</omitEmptyFields>
+          <pattern>
+            {
+              "date": "%date{UNIX_TIMESTAMP_AS_NUMBER}",
+              "logger": {
+                "name": "%logger",
+                "thread_name": "%thread"
+              },
+              "status": "%level",
+              "ddsource":"java",
+              "service": "logging-spring-boot",
+              "team": "@my_team",
+              "ddtags":"env:sandbox",
+              "hostname":"${hostname}"
+            }
+          </pattern>
+        </pattern>
+      </providers>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="stdout"/>
+    <springProfile name="datadog">
+      <appender-ref ref="datadog"/>
+    </springProfile>
+  </root>
+
+  <logger name="org.apache.kafka.clients.consumer.internals" level="WARN"/>
+
+</configuration>
